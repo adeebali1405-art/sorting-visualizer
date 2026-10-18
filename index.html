@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sorting Visualizer</title>
+<style>
+:root{--bg:#f3f6f4;--surface:#fff;--ink:#17231f;--muted:#5d6b66;--line:#d5ddd9;--bar:#2f6f5e;--cmp:#e0a400;--swap:#c8452d;--done:#3b82a0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101815;--surface:#17221e;--ink:#e6efeb;--muted:#9aaba4;--line:#2b3b35;--bar:#4fae93;--cmp:#f2c230;--swap:#ef6a4f;--done:#6bb6d6}}
+:root[data-theme="dark"]{--bg:#101815;--surface:#17221e;--ink:#e6efeb;--muted:#9aaba4;--line:#2b3b35;--bar:#4fae93;--cmp:#f2c230;--swap:#ef6a4f;--done:#6bb6d6}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:clamp(1.6rem,4vw,2.3rem);margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 18px;max-width:60ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-bottom:14px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+select,input[type=range]{font:inherit;color:var(--ink)}
+select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+button{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.primary{background:var(--bar);color:#fff;border-color:var(--bar)}
+button:disabled,select:disabled,input:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--cmp);outline-offset:2px}
+#stage{height:min(46vh,360px);display:flex;align-items:flex-end;gap:2px;padding:8px 4px 0;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.bar{flex:1;background:var(--bar);border-radius:3px 3px 0 0;min-width:1px}
+.bar.cmp{background:var(--cmp)}.bar.swap{background:var(--swap)}.bar.done{background:var(--done)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.info{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.info h2{font-size:1rem;margin:0 0 6px}
+.info p{margin:0;font-size:.92rem;color:var(--muted)}
+.stat{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sorting Visualizer BY M. Adeeb Ali Softwer Developer</h1>
+  <p class="sub">Pick an algorithm, shuffle the bars, and watch how it sorts step by step.</p>
+
+  <div class="panel controls">
+    <label>Algorithm
+      <select id="algo">
+        <option value="bubble">Bubble sort</option>
+        <option value="selection">Selection sort</option>
+        <option value="insertion">Insertion sort</option>
+        <option value="merge">Merge sort</option>
+        <option value="quick">Quick sort</option>
+        <option value="heap">Heap sort</option>
+      </select>
+    </label>
+    <label>Array size: <span id="sizeV" class="stat">40</span>
+      <input id="size" type="range" min="5" max="120" value="40">
+    </label>
+    <label>Speed: <span id="speedV" class="stat">60</span>
+      <input id="speed" type="range" min="1" max="100" value="60">
+    </label>
+    <button id="shuffle">New array</button>
+    <button id="start" class="primary">Start sorting</button>
+    <button id="stop" disabled>Stop</button>
+  </div>
+
+  <div id="stage" role="img" aria-label="Bar chart of the array being sorted"></div>
+  <div class="legend">
+    <span><i style="background:var(--bar)"></i>Unsorted</span>
+    <span><i style="background:var(--cmp)"></i>Comparing</span>
+    <span><i style="background:var(--swap)"></i>Swapping / writing</span>
+    <span><i style="background:var(--done)"></i>Sorted</span>
+    <span>Comparisons: <b id="cmpN" class="stat">0</b></span>
+    <span>Swaps / writes: <b id="swpN" class="stat">0</b></span>
+  </div>
+
+  <div class="panel info">
+    <div><h2 id="aName">Bubble sort</h2><p id="aDesc"></p></div>
+    <div><h2>Time complexity</h2><p id="aTime"></p></div>
+    <div><h2>Space complexity</h2><p id="aSpace"></p></div>
+  </div>
+</div>
+
+<script>
+const INFO = {
+  bubble:{n:"Bubble sort",d:"Repeatedly compares neighbouring items and swaps them if they are in the wrong order. The largest value bubbles to the end each pass.",t:"Best O(n), average and worst O(n²)",s:"O(1)"},
+  selection:{n:"Selection sort",d:"Finds the smallest item in the unsorted part and swaps it into the next position.",t:"Best, average and worst O(n²)",s:"O(1)"},
+  insertion:{n:"Insertion sort",d:"Takes one item at a time and inserts it into its correct place among the already sorted items on the left.",t:"Best O(n), average and worst O(n²)",s:"O(1)"},
+  merge:{n:"Merge sort",d:"Splits the array in halves, sorts each half, then merges the two sorted halves back together.",t:"Best, average and worst O(n log n)",s:"O(n)"},
+  quick:{n:"Quick sort",d:"Picks a pivot, moves smaller items to its left and larger to its right, then sorts both sides.",t:"Best and average O(n log n), worst O(n²)",s:"O(log n)"},
+  heap:{n:"Heap sort",d:"Builds a max heap, then repeatedly moves the largest item to the end and rebuilds the heap.",t:"Best, average and worst O(n log n)",s:"O(1)"}
+};
+const $ = id => document.getElementById(id);
+const stage=$("stage"), algoSel=$("algo"), sizeEl=$("size"), speedEl=$("speed");
+let arr=[], bars=[], running=false, cancel=false, cmpCount=0, swpCount=0;
+
+const sleep = () => new Promise(r => setTimeout(r, Math.max(1, 400 / Math.pow(1.07, +speedEl.value))));
+const render = () => {
+  stage.innerHTML = "";
+  bars = arr.map(v => { const b=document.createElement("div"); b.className="bar"; b.style.height=v+"%"; stage.appendChild(b); return b; });
+};
+const newArray = () => {
+  if (running) return;
+  const n = +sizeEl.value;
+  arr = Array.from({length:n}, () => Math.floor(Math.random()*95)+5);
+  cmpCount = swpCount = 0; updateStats(); render();
+};
+const updateStats = () => { $("cmpN").textContent=cmpCount; $("swpN").textContent=swpCount; };
+const setInfo = () => { const i=INFO[algoSel.value]; $("aName").textContent=i.n; $("aDesc").textContent=i.d; $("aTime").textContent=i.t; $("aSpace").textContent=i.s; };
+
+const mark = (idx, cls) => idx.forEach(i => bars[i] && bars[i].classList.add(cls));
+const unmark = (idx, cls) => idx.forEach(i => bars[i] && bars[i].classList.remove(cls));
+const setVal = (i, v) => { arr[i]=v; bars[i].style.height=v+"%"; };
+async function step(){ if (cancel) throw "stop"; await sleep(); if (cancel) throw "stop"; }
+async function compare(i, j){ cmpCount++; updateStats(); mark([i,j],"cmp"); await step(); unmark([i,j],"cmp"); return arr[i] - arr[j]; }
+async function swap(i, j){
+  swpCount++; updateStats(); mark([i,j],"swap");
+  const t=arr[i]; setVal(i,arr[j]); setVal(j,t);
+  await step(); unmark([i,j],"swap");
+}
+async function write(i, v){ swpCount++; updateStats(); mark([i],"swap"); setVal(i,v); await step(); unmark([i],"swap"); }
+
+const ALGOS = {
+  async bubble(){
+    const n=arr.length;
+    for(let i=0;i<n-1;i++){
+      for(let j=0;j<n-1-i;j++){ if(await compare(j,j+1)>0) await swap(j,j+1); }
+      mark([n-1-i],"done");
+    }
+    mark([0],"done");
+  },
+  async selection(){
+    const n=arr.length;
+    for(let i=0;i<n-1;i++){
+      let m=i;
+      for(let j=i+1;j<n;j++){ if(await compare(j,m)<0) m=j; }
+      if(m!==i) await swap(i,m);
+      mark([i],"done");
+    }
+    mark([n-1],"done");
+  },
+  async insertion(){
+    const n=arr.length;
+    for(let i=1;i<n;i++){
+      let j=i;
+      while(j>0 && await compare(j-1,j)>0){ await swap(j-1,j); j--; }
+    }
+  },
+  async merge(){
+    const ms = async (l,r) => {
+      if(l>=r) return;
+      const m=(l+r)>>1;
+      await ms(l,m); await ms(m+1,r);
+      const L=arr.slice(l,m+1), R=arr.slice(m+1,r+1);
+      let i=0,j=0,k=l;
+      while(i<L.length && j<R.length){
+        cmpCount++; updateStats(); mark([l+i, m+1+j],"cmp"); await step(); unmark([l+i,m+1+j],"cmp");
+        if(L[i]<=R[j]) await write(k++,L[i++]); else await write(k++,R[j++]);
+      }
+      while(i<L.length) await write(k++,L[i++]);
+      while(j<R.length) await write(k++,R[j++]);
+    };
+    await ms(0,arr.length-1);
+  },
+  async quick(){
+    const qs = async (lo,hi) => {
+      if(lo>=hi){ if(lo===hi) mark([lo],"done"); return; }
+      let i=lo;
+      mark([hi],"swap");
+      for(let j=lo;j<hi;j++){
+        if(await compare(j,hi)<0){ if(i!==j) await swap(i,j); i++; }
+      }
+      unmark([hi],"swap");
+      if(i!==hi) await swap(i,hi);
+      mark([i],"done");
+      await qs(lo,i-1); await qs(i+1,hi);
+    };
+    await qs(0,arr.length-1);
+  },
+  async heap(){
+    const n=arr.length;
+    const sift = async (size,root) => {
+      while(true){
+        let big=root, l=2*root+1, r=2*root+2;
+        if(l<size && await compare(l,big)>0) big=l;
+        if(r<size && await compare(r,big)>0) big=r;
+        if(big===root) return;
+        await swap(root,big); root=big;
+      }
+    };
+    for(let i=(n>>1)-1;i>=0;i--) await sift(n,i);
+    for(let end=n-1;end>0;end--){ await swap(0,end); mark([end],"done"); await sift(end,0); }
+    mark([0],"done");
+  }
+};
+
+const lock = on => {
+  running = on;
+  ["algo","size","shuffle","start"].forEach(id => $(id).disabled = on);
+  $("stop").disabled = !on;
+};
+async function start(){
+  if(running) return;
+  cmpCount = swpCount = 0; updateStats(); render();
+  cancel = false; lock(true);
+  try{
+    await ALGOS[algoSel.value]();
+    for(let i=0;i<bars.length;i++){ bars[i].classList.add("done"); if(i%2===0) await new Promise(r=>setTimeout(r,8)); }
+  }catch(e){ if(e!=="stop") console.error(e); }
+  lock(false);
+}
+$("start").onclick = start;
+$("stop").onclick = () => { cancel = true; };
+$("shuffle").onclick = newArray;
+sizeEl.oninput = () => { $("sizeV").textContent = sizeEl.value; newArray(); };
+speedEl.oninput = () => { $("speedV").textContent = speedEl.value; };
+algoSel.onchange = setInfo;
+setInfo(); newArray();
+</script>
+</body>
+</html>
